@@ -5,7 +5,7 @@ import wave
 from os.path import isfile
 
 from pydub import AudioSegment
-from settings import *
+import settings
 
 
 try:
@@ -107,8 +107,8 @@ def loadSound():
     Tidak menggunakan ffprobe.
     """
 
-    mp3_file = inputFile + ".mp3"
-    wav_file = inputFile + ".wav"
+    mp3_file = settings.inputFile + ".mp3"
+    wav_file = settings.inputFile + ".wav"
 
     # =========================================================
     # WAV

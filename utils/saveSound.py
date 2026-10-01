@@ -4,7 +4,7 @@ from os import remove as removeFile
 from os.path import isfile
 import soundfile as sf
 from pydub import AudioSegment
-from settings import *
+import settings
 
 try:
     import imageio_ffmpeg
@@ -19,8 +19,8 @@ def saveSound(sound, sampleRate):
     Supports both numpy arrays and pydub AudioSegment objects.
     Uses FFmpeg directly to avoid ffprobe requirement.
     """
-    wav_path = outputFile + ".wav"
-    mp3_path = outputFile + ".mp3"
+    wav_path = settings.outputFile + ".wav"
+    mp3_path = settings.outputFile + ".mp3"
 
     try:
         if hasattr(sound, "export"):
