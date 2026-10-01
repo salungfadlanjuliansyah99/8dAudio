@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useCallback } from "react";
 import EffectsPanel from "./EffectsPanel";
 
@@ -79,13 +81,20 @@ export default function AudioUploader({ onFileSelected }: Props) {
     setOptions((prev) => ({ ...prev, bass_boost_db: value }));
   };
 
+  const handleReset = () => {
+    setOptions(defaultOptions);
+  };
+
   return (
     <div>
       <div
         id="audio-upload-zone"
         className={`upload-zone ${isDragOver ? "drag-over" : ""}`}
         onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
         role="button"
@@ -224,7 +233,12 @@ export default function AudioUploader({ onFileSelected }: Props) {
       )}
 
       {selectedFile && !fileError && (
-        <EffectsPanel options={options} onToggle={toggleOption} onBassBoostChange={handleBassBoostChange} />
+        <EffectsPanel
+          options={options}
+          onToggle={toggleOption}
+          onBassBoostChange={handleBassBoostChange}
+          onReset={handleReset}
+        />
       )}
 
       {selectedFile && !fileError && (
@@ -250,203 +264,3 @@ export default function AudioUploader({ onFileSelected }: Props) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"path":"frontend/components/AudioUploader.tsx"}]}  ,
