@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AudioUploader from "@/components/AudioUploader";
+import AudioUploader, { type ProcessOptions } from "@/components/AudioUploader";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import AudioPlayer from "@/components/AudioPlayer";
 
@@ -13,33 +13,31 @@ export interface ProcessResult {
   original: string;
 }
 
-// Frontend menggunakan relative path /api/... (same-origin).
-// Vercel rewrite / Next.js rewrites meneruskan /api/* ke backend FastAPI Cloud.
-// TIDAK ada env var yang mengontrol base URL ini – URL hardcoded relative path.
-
 export default function HomePage() {
   const [appState, setAppState] = useState<AppState>("idle");
-  const [result, setResult]     = useState<ProcessResult | null>(null);
-  const [error, setError]       = useState<string>("");
-  const [progress, setProgress] = useState<number>(0); // 0-4 step index
+  const [result, setResult] = useState<ProcessResult | null>(null);
+  const [error, setError] = useState<string>("");
+  const [progress, setProgress] = useState<number>(0);
 
-  const handleFileSelected = async (file: File) => {
+  const handleFileSelected = async (file: File, options: ProcessOptions) => {
     setError("");
     setResult(null);
 
-    // ── Step 0: Uploading ──────────────────────────────────────
     setAppState("uploading");
     setProgress(0);
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("apply_8d", String(options.apply_8d));
+    formData.append("apply_slow", String(options.apply_slow));
+    formData.append("apply_reverb", String(options.apply_reverb));
+    formData.append("apply_bass_boost", String(options.apply_bass_boost));
+    formData.append("bass_boost_db", String(options.bass_boost_db));
 
     try {
-      // ── Step 1: Processing ──────────────────────────────────
       setAppState("processing");
       setProgress(1);
 
-      // Simulate sub-step progress while waiting for backend
       const stepTimer1 = setTimeout(() => setProgress(2), 4000);
       const stepTimer2 = setTimeout(() => setProgress(3), 9000);
 
@@ -63,15 +61,13 @@ export default function HomePage() {
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
 
-      // Ambil nama file dari header X-Filename atau generate dari nama file asli
       const headerFilename = response.headers.get("X-Filename");
       const fallbackStem = file.name.replace(/\.[^/.]+$/, "");
       const outputFileName = headerFilename || `${fallbackStem}_8d.mp3`;
 
-      // ── Step 4: Done ────────────────────────────────────────
       setProgress(4);
       setResult({
-        fileUrl:  objectUrl,
+        fileUrl: objectUrl,
         fileName: outputFileName,
         original: file.name,
       });
@@ -83,7 +79,6 @@ export default function HomePage() {
     }
   };
 
-  // Bersihkan memory dan beri tahu backend jika user menutup tab atau meninggalkan halaman
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (result?.fileName) {
@@ -117,9 +112,7 @@ export default function HomePage() {
         padding: "24px 16px 64px",
       }}
     >
-      {/* ── Header ───────────────────────────────────────────── */}
       <header style={{ textAlign: "center", marginBottom: "56px", paddingTop: "48px" }}>
-        {/* Logo badge */}
         <div
           style={{
             display: "inline-flex",
@@ -165,13 +158,9 @@ export default function HomePage() {
             lineHeight: 1.6,
           }}
         >
-          Convert your songs into immersive{" "}
-          <strong style={{ color: "#a78bfa" }}>8D</strong>,{" "}
-          <strong style={{ color: "#ec4899" }}>slow</strong> and{" "}
-          <strong style={{ color: "#38bdf8" }}>reverb</strong> audio.
+          Convert your songs into immersive <strong style={{ color: "#a78bfa" }}>8D</strong>, <strong style={{ color: "#ec4899" }}>slow</strong> and <strong style={{ color: "#38bdf8" }}>reverb</strong> audio.
         </p>
 
-        {/* Feature pills */}
         <div
           style={{
             display: "flex",
@@ -209,7 +198,6 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* ── Main Card ────────────────────────────────────────── */}
       <div
         className="glass-card"
         style={{
@@ -218,7 +206,6 @@ export default function HomePage() {
           padding: "clamp(24px, 5vw, 48px)",
         }}
       >
-        {/* IDLE – show uploader */}
         {(appState === "idle" || appState === "error") && (
           <div className="fade-in">
             <AudioUploader onFileSelected={handleFileSelected} />
@@ -239,9 +226,7 @@ export default function HomePage() {
               >
                 <span style={{ fontSize: "18px", flexShrink: 0 }}>⚠️</span>
                 <div>
-                  <strong style={{ display: "block", marginBottom: "4px" }}>
-                    Processing Failed
-                  </strong>
+                  <strong style={{ display: "block", marginBottom: "4px" }}>Processing Failed</strong>
                   {error}
                 </div>
               </div>
@@ -249,14 +234,12 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* UPLOADING / PROCESSING – show progress */}
         {(appState === "uploading" || appState === "processing") && (
           <div className="fade-in">
             <ProcessingStatus currentStep={progress} />
           </div>
         )}
 
-        {/* DONE – show player */}
         {appState === "done" && result && (
           <div className="fade-in">
             <AudioPlayer result={result} />
@@ -276,18 +259,10 @@ export default function HomePage() {
               >
                 🔄 Convert Another Audio
               </button>
-              <a
-                href={result.fileUrl}
-                download={result.fileName}
-                style={{ flex: 1, textDecoration: "none" }}
-              >
+              <a href={result.fileUrl} download={result.fileName} style={{ flex: 1, textDecoration: "none" }}>
                 <button
                   className="btn-ghost"
-                  style={{
-                    width: "100%",
-                    padding: "14px 24px",
-                    fontSize: "15px",
-                  }}
+                  style={{ width: "100%", padding: "14px 24px", fontSize: "15px" }}
                   id="download-result-btn"
                 >
                   📥 Download MP3
@@ -298,7 +273,6 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* ── How it works ─────────────────────────────────────── */}
       {appState === "idle" && (
         <div
           className="fade-in"
@@ -324,8 +298,8 @@ export default function HomePage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
             {[
               { icon: "📁", title: "Upload", desc: "Drop your MP3 or WAV file" },
-              { icon: "⚙️", title: "Process", desc: "8D + slow + reverb applied" },
-              { icon: "🎧", title: "Enjoy", desc: "Play & download your 8D audio" },
+              { icon: "⚙️", title: "Process", desc: "Choose custom audio effects" },
+              { icon: "🎧", title: "Enjoy", desc: "Play & download your final audio" },
             ].map((item, i) => (
               <div
                 key={i}
@@ -350,7 +324,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Footer ───────────────────────────────────────────── */}
       <footer
         style={{
           marginTop: "64px",
@@ -364,3 +337,340 @@ export default function HomePage() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

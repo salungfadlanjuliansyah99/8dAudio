@@ -4,24 +4,13 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 
 # ---------------------------------------------------------------------------
 # Path setup
-#
-# Project structure:
-#
-# 8d-slow-reverb-main/
-# ├── backend/
-# │   └── main.py
-# ├── effects/
-# ├── utils/
-# └── settings.py
-#
-# main.py berada di backend/, jadi parent.parent adalah project root.
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -32,17 +21,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # ---------------------------------------------------------------------------
 # FFmpeg configuration
-#
-# FastAPI Cloud tidak menyediakan FFmpeg/ffprobe sebagai system executable.
-#
-# imageio-ffmpeg menyediakan binary FFmpeg yang bisa digunakan langsung
-# oleh aplikasi Python.
-#
-# IMPORTANT:
-# - Kita menggunakan FFmpeg dari imageio-ffmpeg.
-# - Kita TIDAK membuat ffprobe palsu.
-# - Pemrosesan input/output akan kita sesuaikan agar tidak membutuhkan
-#   executable ffprobe.
 # ---------------------------------------------------------------------------
 
 from pydub import AudioSegment
@@ -51,14 +29,9 @@ try:
     import imageio_ffmpeg
 
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-
-    # Beri tahu Pydub lokasi FFmpeg yang benar.
     AudioSegment.converter = ffmpeg_exe
 
-    # Tambahkan folder FFmpeg ke PATH supaya library lain yang
-    # menjalankan "ffmpeg" dapat menemukannya.
     ffmpeg_dir = os.path.dirname(ffmpeg_exe)
-
     current_path = os.environ.get("PATH", "")
 
     if ffmpeg_dir not in current_path.split(os.pathsep):
@@ -72,22 +45,16 @@ try:
     print(f"[FFmpeg] Directory: {ffmpeg_dir}")
 
 except Exception as exc:
-    print(
-        f"[FFmpeg] WARNING: Could not initialize imageio-ffmpeg: {exc}"
-    )
+    print(f"[FFmpeg] WARNING: Could not initialize imageio-ffmpeg: {exc}")
 
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-ALLOWED_EXTENSIONS = {
-    ".mp3",
-    ".wav",
-}
-
-# Vercel/serverless request payload limit yang digunakan oleh aplikasi.
+ALLOWED_EXTENSIONS = {".mp3", ".wav"}
 MAX_FILE_SIZE = int(4.5 * 1024 * 1024)
+CHUNK_MS = 30_000
 
 
 # ---------------------------------------------------------------------------
@@ -96,15 +63,8 @@ MAX_FILE_SIZE = int(4.5 * 1024 * 1024)
 
 app = FastAPI(
     title="8D Audio Converter API",
-    version="1.2.0",
+    version="2.0.0",
 )
-
-
-# ---------------------------------------------------------------------------
-# CORS
-#
-# Diperlukan untuk local development dan production frontend.
-# ---------------------------------------------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,57 +80,69 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
-# Helper: process audio
-#
-# Menjalankan pipeline asli:
-#
-# input
-#   ↓
-# loadSound()
-#   ↓
-# effect8d()
-#   ↓
-# effectSlowedDown()
-#   ↓
-# effectReverb()
-#   ↓
-# saveSound()
-#
-# Algoritma audio tidak diubah di sini.
-# ---------------------------------------------------------------------------
+def _to_audio_segment_from_array(audio, sample_rate):
+    """Convert numpy stereo array back into pydub AudioSegment."""
+    import numpy as np
 
-def process_audio(input_path: Path, output_path: Path) -> None:
-    """
-    Runs the existing 8D + slow + reverb audio pipeline.
+    arr = np.asarray(audio, dtype=np.float32)
 
-    All input/output files are stored in a temporary directory.
-    """
+    if arr.ndim == 1:
+        arr = np.column_stack([arr, arr])
 
+    if arr.shape[1] == 1:
+        arr = np.column_stack([arr, arr])
+
+    peak = float(np.max(np.abs(arr))) if arr.size else 1.0
+    if peak > 1.0:
+        arr = arr / peak
+    arr = np.clip(arr, -1.0, 1.0)
+
+    pcm = (arr * 32767.0).astype(np.int16)
+    return AudioSegment(
+        data=pcm.tobytes(),
+        sample_width=2,
+        frame_rate=int(sample_rate),
+        channels=pcm.shape[1],
+    )
+
+
+def apply_bass_boost(sound, boost_db: float):
+    """Simple bass boost using low-pass + gain boost. Works on AudioSegment."""
+    if hasattr(sound, "low_pass_filter"):
+        bass = sound.low_pass_filter(250)
+        return sound + boost_db + (bass * 0.6)
+
+    # fallback when called with a numpy array
+    import numpy as np
+
+    if isinstance(sound, np.ndarray):
+        audio = np.asarray(sound, dtype=np.float32)
+        peak = np.max(np.abs(audio)) if audio.size else 1.0
+        if peak > 1.0:
+            audio = audio / peak
+        boost = 10 ** (boost_db / 20)
+        return (audio * boost).astype(np.float32)
+
+    return sound
+
+
+def process_audio(input_path: Path, output_path: Path, effects: dict) -> None:
+    """Process audio with optional effects while keeping memory footprint low."""
     import importlib
     import settings as _settings
 
-    # Simpan settings asli supaya setelah request selesai,
-    # konfigurasi global dikembalikan seperti semula.
     original_input = _settings.inputFile
     original_output = _settings.outputFile
-
-    # Engine lama menggunakan settings.inputFile/outputFile
-    # tanpa extension karena masing-masing utility menambahkan
-    # .mp3 / .wav sendiri.
     _settings.inputFile = str(input_path.with_suffix(""))
     _settings.outputFile = str(output_path.with_suffix(""))
 
     try:
-        # Import modules yang digunakan oleh engine.
         import utils.loadSound as _loadSound
         import effects.effect8d as _effect8d
         import effects.slow as _slow
         import effects.reverb as _reverb
         import utils.saveSound as _saveSound
 
-        # Reload agar perubahan settings.inputFile/outputFile
-        # digunakan oleh module yang sudah pernah di-import.
         importlib.reload(_loadSound)
         importlib.reload(_effect8d)
         importlib.reload(_slow)
@@ -183,75 +155,86 @@ def process_audio(input_path: Path, output_path: Path) -> None:
         from effects.reverb import effectReverb
         from utils.saveSound import saveSound
 
-        # ---------------------------------------------------------------
-        # ORIGINAL AUDIO PIPELINE
-        # ---------------------------------------------------------------
+        full_sound = loadSound()
+        current_sample_rate = full_sound.frame_rate
+        processed_chunks = []
 
-        sound = loadSound()
+        print(f"[PROCESS] Audio length: {len(full_sound)} ms")
 
-        sound8d = effect8d(sound)
+        for start_ms in range(0, len(full_sound), CHUNK_MS):
+            chunk = full_sound[start_ms : start_ms + CHUNK_MS]
+            if len(chunk) == 0:
+                continue
 
-        sound8dAndSlowedDown = effectSlowedDown(sound8d)
+            working = chunk
 
-        sound8dSlowedDownReverbed, sample_rate = effectReverb(
-            sound8dAndSlowedDown
-        )
+            if effects.get("apply_8d", True):
+                print("[PROCESS] Applying 8D effect to chunk...")
+                working = effect8d(working)
 
-        saveSound(
-            sound8dSlowedDownReverbed,
-            sample_rate,
-        )
+            if effects.get("apply_slow", True):
+                print("[PROCESS] Applying slow effect to chunk...")
+                working = effectSlowedDown(working)
+
+            if effects.get("apply_reverb", True):
+                print("[PROCESS] Applying reverb effect to chunk...")
+                working, current_sample_rate = effectReverb(working)
+
+            if effects.get("apply_bass_boost", False):
+                boost_db = float(effects.get("bass_boost_db", 5.0))
+                print(f"[PROCESS] Applying bass boost ({boost_db} dB) to chunk...")
+                working = apply_bass_boost(working, boost_db)
+
+            processed_chunks.append(working)
+
+        if not processed_chunks:
+            raise RuntimeError("No audio chunks were generated.")
+
+        final_output = processed_chunks[0]
+        for chunk in processed_chunks[1:]:
+            if isinstance(final_output, type(chunk)):
+                final_output = final_output + chunk if hasattr(final_output, "__add__") else chunk
+            else:
+                final_output = _to_audio_segment_from_array(final_output, current_sample_rate) + _to_audio_segment_from_array(chunk, current_sample_rate)
+
+        if isinstance(final_output, tuple):
+            final_output = final_output[0]
+
+        if not hasattr(final_output, "export") and not hasattr(final_output, "shape"):
+            final_output = _to_audio_segment_from_array(final_output, current_sample_rate)
+
+        print("[PROCESS] Saving audio...")
+        saveSound(final_output, current_sample_rate)
+        print("[PROCESS] Audio processing completed successfully!")
 
     finally:
-        # Selalu kembalikan settings asli.
         _settings.inputFile = original_input
         _settings.outputFile = original_output
 
 
-# ---------------------------------------------------------------------------
-# Root endpoint
-# ---------------------------------------------------------------------------
-
 @app.get("/")
 async def root():
     return {
-        "message": "8D Audio Converter API is running"
+        "message": "8D Audio Converter API v2.0 is running",
+        "features": ["8D effect", "Slow effect", "Reverb effect", "Bass boost"],
     }
 
-
-# ---------------------------------------------------------------------------
-# Health endpoint
-# ---------------------------------------------------------------------------
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok"
-    }
+    return {"status": "ok"}
 
-
-# ---------------------------------------------------------------------------
-# Main processing endpoint
-# ---------------------------------------------------------------------------
 
 @app.post("/api/process")
-async def process(file: UploadFile = File(...)):
-    """
-    One-shot audio processing endpoint.
-
-    Receives MP3/WAV,
-    processes 8D + slow + reverb,
-    then returns the generated MP3 directly.
-
-    No persistent upload/output directory is required.
-    """
-
-    # ---------------------------------------------------------------
-    # 1. Validate filename / extension
-    # ---------------------------------------------------------------
-
+async def process(
+    file: UploadFile = File(...),
+    apply_8d: bool = Form(True),
+    apply_slow: bool = Form(True),
+    apply_reverb: bool = Form(True),
+    apply_bass_boost: bool = Form(False),
+    bass_boost_db: float = Form(5.0),
+):
     original_name = file.filename or "audio"
-
     ext = Path(original_name).suffix.lower()
 
     if ext not in ALLOWED_EXTENSIONS:
@@ -263,15 +246,7 @@ async def process(file: UploadFile = File(...)):
             ),
         )
 
-    # ---------------------------------------------------------------
-    # 2. Read uploaded file
-    # ---------------------------------------------------------------
-
     content = await file.read()
-
-    # ---------------------------------------------------------------
-    # 3. Validate file size
-    # ---------------------------------------------------------------
 
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
@@ -283,129 +258,670 @@ async def process(file: UploadFile = File(...)):
         )
 
     stem = Path(original_name).stem
-
     output_filename = f"{stem}_8d.mp3"
 
-    # ---------------------------------------------------------------
-    # 4. Temporary processing directory
-    # ---------------------------------------------------------------
+    effects = {
+        "apply_8d": apply_8d,
+        "apply_slow": apply_slow,
+        "apply_reverb": apply_reverb,
+        "apply_bass_boost": apply_bass_boost,
+        "bass_boost_db": bass_boost_db,
+    }
 
     with tempfile.TemporaryDirectory() as temp_dir:
-
         temp_dir_path = Path(temp_dir)
-
         input_path = temp_dir_path / f"input{ext}"
-
         output_path = temp_dir_path / f"{stem}_8d"
-
-        # Tulis file upload ke temporary directory.
         input_path.write_bytes(content)
 
         try:
-            # Jalankan audio processing di thread terpisah
-            # agar event loop FastAPI tidak terblokir.
             loop = asyncio.get_running_loop()
-
             await loop.run_in_executor(
                 None,
                 process_audio,
                 input_path,
                 output_path,
+                effects,
             )
-
         except Exception as exc:
-            # Log error lengkap ke server untuk debugging.
-            print(
-                f"[PROCESS ERROR] "
-                f"{type(exc).__name__}: {exc}"
-            )
-
+            print(f"[PROCESS ERROR] {type(exc).__name__}: {exc}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Pemrosesan audio gagal: {exc}",
             )
 
-        # -----------------------------------------------------------
-        # 5. Verify output
-        # -----------------------------------------------------------
-
         final_mp3 = output_path.with_suffix(".mp3")
-
         if not final_mp3.exists():
             raise HTTPException(
                 status_code=500,
-                detail=(
-                    "Pemrosesan selesai namun "
-                    "file output tidak ditemukan."
-                ),
+                detail="Pemrosesan selesai namun file output tidak ditemukan.",
             )
 
-        # Baca MP3 sebelum TemporaryDirectory dihapus.
         mp3_bytes = final_mp3.read_bytes()
-
-    # ---------------------------------------------------------------
-    # 6. Return generated MP3
-    # ---------------------------------------------------------------
 
     return Response(
         content=mp3_bytes,
         media_type="audio/mpeg",
         headers={
-            "Content-Disposition": (
-                f'attachment; filename="{output_filename}"'
-            ),
+            "Content-Disposition": f'attachment; filename="{output_filename}"',
             "X-Filename": output_filename,
             "X-Original-Filename": original_name,
-            "Cache-Control": (
-                "no-store, no-cache, must-revalidate"
-            ),
-            "Access-Control-Expose-Headers": (
-                "Content-Disposition, "
-                "X-Filename, "
-                "X-Original-Filename"
-            ),
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Access-Control-Expose-Headers": "Content-Disposition, X-Filename, X-Original-Filename",
         },
     )
 
-
-# ---------------------------------------------------------------------------
-# Legacy download endpoint
-# ---------------------------------------------------------------------------
 
 @app.get("/api/download/{filename}")
 async def download_file(filename: str):
-    """
-    Compatibility endpoint.
-
-    Audio is already returned directly by /api/process,
-    so there is no persistent output file to download.
-    """
-
     return JSONResponse(
         status_code=200,
         content={
-            "message": (
-                "File audio sudah di-stream langsung "
-                "ke browser saat pemrosesan selesai."
-            )
+            "message": "File audio sudah di-stream langsung ke browser saat pemrosesan selesai."
         },
     )
 
 
-# ---------------------------------------------------------------------------
-# Legacy cleanup endpoint
-# ---------------------------------------------------------------------------
-
 @app.post("/api/cleanup/{filename}")
 async def manual_cleanup(filename: str):
-    """
-    Compatibility endpoint.
+    return {"success": True, "message": f"Cleaned up {filename}"}
 
-    TemporaryDirectory automatically removes temporary files
-    after processing is finished.
-    """
 
-    return {
-        "success": True,
-        "message": f"Cleaned up {filename}",
-    }
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+a
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+n
+
+
+
+
+
+
+
+
+
+
+
+

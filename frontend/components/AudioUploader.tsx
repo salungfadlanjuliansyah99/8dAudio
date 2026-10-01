@@ -2,27 +2,43 @@
 
 import { useState, useRef, useCallback } from "react";
 
+export interface ProcessOptions {
+  apply_8d: boolean;
+  apply_slow: boolean;
+  apply_reverb: boolean;
+  apply_bass_boost: boolean;
+  bass_boost_db: number;
+}
+
 interface Props {
-  onFileSelected: (file: File) => void;
+  onFileSelected: (file: File, options: ProcessOptions) => void;
 }
 
 const MAX_SIZE_MB = 4.5;
-const MAX_SIZE    = Math.floor(MAX_SIZE_MB * 1024 * 1024);
-const ALLOWED     = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave"];
+const MAX_SIZE = Math.floor(MAX_SIZE_MB * 1024 * 1024);
+const ALLOWED = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave"];
 const ALLOWED_EXT = [".mp3", ".wav"];
 
+const defaultOptions: ProcessOptions = {
+  apply_8d: true,
+  apply_slow: true,
+  apply_reverb: true,
+  apply_bass_boost: false,
+  bass_boost_db: 5,
+};
+
 export default function AudioUploader({ onFileSelected }: Props) {
-  const [isDragOver, setIsDragOver]   = useState(false);
-  const [fileError, setFileError]     = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [fileError, setFileError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [options, setOptions] = useState<ProcessOptions>(defaultOptions);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validateAndSet = useCallback((file: File) => {
     setFileError("");
-
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     const validMime = ALLOWED.includes(file.type);
-    const validExt  = ALLOWED_EXT.includes(ext);
+    const validExt = ALLOWED_EXT.includes(ext);
 
     if (!validMime && !validExt) {
       setFileError("Invalid file type. Please upload an MP3 or WAV file.");
@@ -36,12 +52,15 @@ export default function AudioUploader({ onFileSelected }: Props) {
     setSelectedFile(file);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) validateAndSet(file);
-  }, [validateAndSet]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) validateAndSet(file);
+    },
+    [validateAndSet]
+  );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,14 +72,21 @@ export default function AudioUploader({ onFileSelected }: Props) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const toggleOption = (key: keyof ProcessOptions) => {
+    if (key === "bass_boost_db") return;
+    setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
     <div>
-      {/* Drop Zone */}
       <div
         id="audio-upload-zone"
         className={`upload-zone ${isDragOver ? "drag-over" : ""}`}
         onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
         role="button"
@@ -73,7 +99,6 @@ export default function AudioUploader({ onFileSelected }: Props) {
         }}
         aria-label="Upload audio file"
       >
-        {/* Icon */}
         <div
           style={{
             width: "72px",
@@ -107,10 +132,7 @@ export default function AudioUploader({ onFileSelected }: Props) {
           {isDragOver ? "Drop it here!" : "Drag & drop your audio file"}
         </p>
         <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "24px" }}>
-          or{" "}
-          <span className="gradient-text" style={{ fontWeight: 700, cursor: "pointer" }}>
-            click to browse
-          </span>
+          or <span className="gradient-text" style={{ fontWeight: 700, cursor: "pointer" }}>click to browse</span>
         </p>
         <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
           MP3 or WAV &nbsp;·&nbsp; Max {MAX_SIZE_MB} MB
@@ -126,7 +148,6 @@ export default function AudioUploader({ onFileSelected }: Props) {
         />
       </div>
 
-      {/* File Error */}
       {fileError && (
         <div
           style={{
@@ -146,7 +167,6 @@ export default function AudioUploader({ onFileSelected }: Props) {
         </div>
       )}
 
-      {/* Selected File Preview */}
       {selectedFile && !fileError && (
         <div
           style={{
@@ -160,7 +180,6 @@ export default function AudioUploader({ onFileSelected }: Props) {
             gap: "14px",
           }}
         >
-          {/* File icon */}
           <div
             style={{
               width: "44px",
@@ -177,7 +196,6 @@ export default function AudioUploader({ onFileSelected }: Props) {
             🎵
           </div>
 
-          {/* File info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <p
               style={{
@@ -192,12 +210,9 @@ export default function AudioUploader({ onFileSelected }: Props) {
             >
               {selectedFile.name}
             </p>
-            <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              {formatSize(selectedFile.size)}
-            </p>
+            <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{formatSize(selectedFile.size)}</p>
           </div>
 
-          {/* Remove button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -223,12 +238,76 @@ export default function AudioUploader({ onFileSelected }: Props) {
         </div>
       )}
 
-      {/* Convert button */}
+      {selectedFile && !fileError && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "18px",
+            borderRadius: "16px",
+            background: "rgba(9,12,24,0.55)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div style={{ marginBottom: "12px", fontWeight: 700, color: "var(--text-primary)" }}>Choose audio effects</div>
+
+          <div style={{ display: "grid", gap: "10px" }}>
+            {[
+              { key: "apply_8d", label: "8D" },
+              { key: "apply_slow", label: "Slow" },
+              { key: "apply_reverb", label: "Reverb" },
+              { key: "apply_bass_boost", label: "Bass Booster" },
+            ].map(({ key, label }) => {
+              const isChecked = options[key as keyof ProcessOptions] as boolean;
+              return (
+                <label
+                  key={key}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    color: "var(--text-secondary)",
+                    fontSize: "14px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{label}</span>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleOption(key as keyof ProcessOptions)}
+                    aria-label={label}
+                  />
+                </label>
+              );
+            })}
+          </div>
+
+          {options.apply_bass_boost && (
+            <div style={{ marginTop: "14px" }}>
+              <label style={{ display: "block", marginBottom: "8px", color: "var(--text-secondary)", fontSize: "13px" }}>
+                Bass boost level: {options.bass_boost_db} dB
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={12}
+                step={1}
+                value={options.bass_boost_db}
+                onChange={(e) => setOptions((prev) => ({ ...prev, bass_boost_db: Number(e.target.value) }))}
+                style={{ width: "100%" }}
+                aria-label="Bass boost level"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {selectedFile && !fileError && (
         <button
           className="btn-gradient pulse-ring"
           id="convert-btn"
-          onClick={() => onFileSelected(selectedFile)}
+          onClick={() => onFileSelected(selectedFile, options)}
           style={{
             width: "100%",
             marginTop: "16px",
@@ -241,9 +320,334 @@ export default function AudioUploader({ onFileSelected }: Props) {
           }}
         >
           <span>🎧</span>
-          Convert to 8D Audio
+          Convert Audio
         </button>
       )}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
