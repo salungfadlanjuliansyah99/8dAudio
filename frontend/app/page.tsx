@@ -13,6 +13,10 @@ export interface ProcessResult {
   original: string;
 }
 
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "https://a8d-audio-converter.fastapicloud.dev";
+
 export default function HomePage() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [result, setResult] = useState<ProcessResult | null>(null);
@@ -41,7 +45,7 @@ export default function HomePage() {
       const stepTimer1 = setTimeout(() => setProgress(2), 4000);
       const stepTimer2 = setTimeout(() => setProgress(3), 9000);
 
-      const response = await fetch("/api/process", {
+      const response = await fetch(`${BACKEND_URL}/api/process`, {
         method: "POST",
         body: formData,
       });
@@ -82,7 +86,7 @@ export default function HomePage() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (result?.fileName) {
-        navigator.sendBeacon(`/api/cleanup/${result.fileName}`);
+        navigator.sendBeacon(`${BACKEND_URL}/api/cleanup/${result.fileName}`);
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
