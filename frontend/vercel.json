@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://a8d-audio-converter-1b5c2e52.fastapicloud.dev/api/:path*"
+      "destination": "https://a8d-audio-converter.fastapicloud.dev/api/:path*"
     }
   ]
 }
