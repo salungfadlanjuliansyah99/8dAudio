@@ -1,47 +1,67 @@
-# Node.js & Next.js
+# Node dependencies
 node_modules/
-**/node_modules/
+.pnp
+.pnp.js
+
+# Testing
+.nyc_output
+/coverage
+
+# Production
+/build
+/dist
 .next/
-**/.next/
 out/
-build/
-dist/
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
-.vercel/
-**/.vercel/
-
-# Environment files
-.env*.local
-.env
 
 # Python
-venv/
-.venv/
-env/
 __pycache__/
-**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
-.pytest_cache/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Audio files & temporary media
-*.mp3
-*.wav
-*.m4a
-*.flac
-*.ogg
-backend/uploads/*
-!backend/uploads/.gitkeep
-backend/outputs/*
-!backend/outputs/.gitkeep
-
-# IDE & OS
+# IDE
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db
 *.swp
+*.swo
+*~
+.DS_Store
+
+# Audio temp files
+*.wav
+*.mp3
+/temp/
+/uploads/
