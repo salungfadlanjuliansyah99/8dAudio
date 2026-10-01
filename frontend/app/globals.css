@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-@import "tailwindcss";
-@import "bootstrap-icons/font/bootstrap-icons.css";
+@import 'tailwindcss';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
 
+/* ─── CSS Variables / Design Tokens ─────────────────────────── */
 :root {
   --bg-primary: #050507;
   --bg-secondary: #0d0d14;
@@ -23,6 +23,7 @@
   --gradient-glow: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.15), rgba(59,130,246,0.15));
 }
 
+/* ─── Base ─────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -40,6 +41,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ─── Glass Card ───────────────────────────────────────────── */
 .glass-card {
   background: var(--bg-card);
   backdrop-filter: blur(20px);
@@ -54,6 +56,7 @@ body {
   border-color: rgba(255,255,255,0.12);
 }
 
+/* ─── Gradient Text ────────────────────────────────────────── */
 .gradient-text {
   background: var(--gradient-main);
   -webkit-background-clip: text;
@@ -61,6 +64,7 @@ body {
   background-clip: text;
 }
 
+/* ─── Gradient Button ──────────────────────────────────────── */
 .btn-gradient {
   position: relative;
   background: var(--gradient-main);
@@ -98,23 +102,7 @@ body {
   transform: none;
 }
 
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-family: 'Inter', sans-serif;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-ghost:hover {
-  border-color: var(--accent-purple);
-  color: var(--text-primary);
-  background: rgba(139, 92, 246, 0.08);
-}
-
+/* ─── Upload Zone ──────────────────────────────────────────── */
 .upload-zone {
   border: 2px dashed var(--border);
   border-radius: 20px;
@@ -148,6 +136,7 @@ body {
   box-shadow: 0 0 40px rgba(139, 92, 246, 0.2);
 }
 
+/* ─── Checkbox Styling ─────────────────────────────────────── */
 .effect-checkbox {
   appearance: none;
   -webkit-appearance: none;
@@ -190,6 +179,7 @@ body {
   outline-offset: 2px;
 }
 
+/* ─── Range Slider ─────────────────────────────────────────── */
 .effect-slider {
   appearance: none;
   -webkit-appearance: none;
@@ -237,6 +227,7 @@ body {
   border: none;
 }
 
+/* ─── Effects Panel ────────────────────────────────────────── */
 .effects-panel {
   display: grid;
   gap: 14px;
@@ -285,6 +276,7 @@ body {
   margin-top: 2px;
 }
 
+/* ─── Bass Boost Controls ──────────────────────────────────── */
 .bass-boost-controls {
   display: grid;
   gap: 12px;
@@ -328,94 +320,7 @@ body {
   border-radius: 6px;
 }
 
-.audio-progress-bar {
-  position: relative;
-  height: 4px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 2px;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.audio-progress-fill {
-  height: 100%;
-  background: var(--gradient-main);
-  border-radius: 2px;
-  transition: width 0.1s linear;
-}
-
-.audio-progress-thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 0 8px rgba(139,92,246,0.8);
-  transition: transform 0.2s ease;
-}
-
-.waveform {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 40px;
-}
-
-.waveform-bar {
-  width: 3px;
-  border-radius: 2px;
-  background: var(--gradient-main);
-  animation: waveAnim 1.2s ease-in-out infinite;
-}
-
-@keyframes waveAnim {
-  0%, 100% { transform: scaleY(0.3); opacity: 0.5; }
-  50% { transform: scaleY(1); opacity: 1; }
-}
-
-.step-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  transition: all 0.4s ease;
-}
-
-.step-item.active { background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); }
-.step-item.done { background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); }
-.step-item.pending { background: rgba(255, 255, 255, 0.02); border: 1px solid transparent; }
-
-.step-dot {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 700;
-  transition: all 0.4s ease;
-}
-
-.step-dot.active { background: var(--gradient-main); box-shadow: 0 0 16px rgba(139,92,246,0.6); }
-.step-dot.done { background: linear-gradient(135deg, #10b981, #059669); }
-.step-dot.pending { background: rgba(255,255,255,0.08); color: var(--text-muted); }
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255,255,255,0.2);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
+/* ─── Animations ───────────────────────────────────────────── */
 .pulse-ring { animation: pulseRing 2s ease-out infinite; }
 
 @keyframes pulseRing {
@@ -431,506 +336,10 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Scrollbar ────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-n
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
