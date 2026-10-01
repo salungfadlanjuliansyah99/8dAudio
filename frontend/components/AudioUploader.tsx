@@ -1,6 +1,5 @@
-"use client";
-
 import { useState, useRef, useCallback } from "react";
+import EffectsPanel from "./EffectsPanel";
 
 export interface ProcessOptions {
   apply_8d: boolean;
@@ -72,9 +71,12 @@ export default function AudioUploader({ onFileSelected }: Props) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const toggleOption = (key: keyof ProcessOptions) => {
-    if (key === "bass_boost_db") return;
+  const toggleOption = (key: keyof Omit<ProcessOptions, "bass_boost_db">) => {
     setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleBassBoostChange = (value: number) => {
+    setOptions((prev) => ({ ...prev, bass_boost_db: value }));
   };
 
   return (
@@ -83,10 +85,7 @@ export default function AudioUploader({ onFileSelected }: Props) {
         id="audio-upload-zone"
         className={`upload-zone ${isDragOver ? "drag-over" : ""}`}
         onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragOver(true);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
         role="button"
@@ -121,14 +120,7 @@ export default function AudioUploader({ onFileSelected }: Props) {
           {isDragOver ? "🎵" : "📁"}
         </div>
 
-        <p
-          style={{
-            fontSize: "1.15rem",
-            fontWeight: 700,
-            color: "var(--text-primary)",
-            marginBottom: "8px",
-          }}
-        >
+        <p style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "8px" }}>
           {isDragOver ? "Drop it here!" : "Drag & drop your audio file"}
         </p>
         <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "24px" }}>
@@ -138,14 +130,7 @@ export default function AudioUploader({ onFileSelected }: Props) {
           MP3 or WAV &nbsp;·&nbsp; Max {MAX_SIZE_MB} MB
         </p>
 
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".mp3,.wav,audio/mpeg,audio/wav"
-          style={{ display: "none" }}
-          id="audio-file-input"
-          onChange={handleInputChange}
-        />
+        <input ref={inputRef} type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" style={{ display: "none" }} id="audio-file-input" onChange={handleInputChange} />
       </div>
 
       {fileError && (
@@ -239,68 +224,7 @@ export default function AudioUploader({ onFileSelected }: Props) {
       )}
 
       {selectedFile && !fileError && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "18px",
-            borderRadius: "16px",
-            background: "rgba(9,12,24,0.55)",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          <div style={{ marginBottom: "12px", fontWeight: 700, color: "var(--text-primary)" }}>Choose audio effects</div>
-
-          <div style={{ display: "grid", gap: "10px" }}>
-            {[
-              { key: "apply_8d", label: "8D" },
-              { key: "apply_slow", label: "Slow" },
-              { key: "apply_reverb", label: "Reverb" },
-              { key: "apply_bass_boost", label: "Bass Booster" },
-            ].map(({ key, label }) => {
-              const isChecked = options[key as keyof ProcessOptions] as boolean;
-              return (
-                <label
-                  key={key}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "12px",
-                    color: "var(--text-secondary)",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <span>{label}</span>
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleOption(key as keyof ProcessOptions)}
-                    aria-label={label}
-                  />
-                </label>
-              );
-            })}
-          </div>
-
-          {options.apply_bass_boost && (
-            <div style={{ marginTop: "14px" }}>
-              <label style={{ display: "block", marginBottom: "8px", color: "var(--text-secondary)", fontSize: "13px" }}>
-                Bass boost level: {options.bass_boost_db} dB
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={12}
-                step={1}
-                value={options.bass_boost_db}
-                onChange={(e) => setOptions((prev) => ({ ...prev, bass_boost_db: Number(e.target.value) }))}
-                style={{ width: "100%" }}
-                aria-label="Bass boost level"
-              />
-            </div>
-          )}
-        </div>
+        <EffectsPanel options={options} onToggle={toggleOption} onBassBoostChange={handleBassBoostChange} />
       )}
 
       {selectedFile && !fileError && (
@@ -525,129 +449,4 @@ export default function AudioUploader({ onFileSelected }: Props) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+"path":"frontend/components/AudioUploader.tsx"}]}  ,
